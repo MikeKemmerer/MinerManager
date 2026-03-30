@@ -27,11 +27,11 @@ foreach ($miners as $miner) {
     $results[] = [
         'name'        => $miner['name'],
         'connection'  => $miner['connection'],
-        'hashrate_5m' => $miner['hashrate_5m'],
-        'power'       => $miner['current_miner_consumption'],
-        'wattage'     => $miner['current_wattage'],
-        'fans'        => $miner['current_fans'],
-        'efficiency'  => $eff,
+        'hashrate_5m' => round($miner['hashrate_5m'], 2),
+        'power'       => (int)$miner['current_miner_consumption'],
+        'wattage'     => (int)$miner['current_wattage'],
+        'fans'        => (int)$miner['current_fans'],
+        'efficiency'  => round($eff, 2),
         'online'      => ($miner['current_wattage'] != 0),
     ];
 }
@@ -40,9 +40,9 @@ $fleet_efficiency = ($total_hashrate > 0) ? round($total_wattage / $total_hashra
 
 echo json_encode([
     'fleet' => [
-        'total_wattage'  => $total_wattage,
-        'total_hashrate' => $total_hashrate,
-        'efficiency'     => $fleet_efficiency,
+        'total_wattage'  => (int)$total_wattage,
+        'total_hashrate' => round($total_hashrate, 2),
+        'efficiency'     => round($fleet_efficiency, 2),
     ],
     'miners' => $results,
 ], JSON_UNESCAPED_SLASHES);

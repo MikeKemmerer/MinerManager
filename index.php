@@ -287,9 +287,9 @@ button.resume:hover {
 <div class="page-header">
     <h1>&#9889; Miner Wattage Manager</h1>
     <div class="fleet-stats">
-        <div class="stat-badge"><span class="value" id="fleet-wattage"><?= $total_wattage ?>W</span> Total</div>
-        <div class="stat-badge"><span class="value" id="fleet-hashrate"><?= $total_hashrate ?> TH/s</span> Hashrate</div>
-        <div class="stat-badge"><span class="value" id="fleet-efficiency"><?= $efficiency ?> W/TH</span> Efficiency</div>
+        <div class="stat-badge"><span class="value" id="fleet-wattage"><?= number_format($total_wattage) ?>W</span> Total</div>
+        <div class="stat-badge"><span class="value" id="fleet-hashrate"><?= number_format($total_hashrate, 2) ?> TH/s</span> Hashrate</div>
+        <div class="stat-badge"><span class="value" id="fleet-efficiency"><?= number_format($efficiency, 2) ?> W/TH</span> Efficiency</div>
     </div>
 </div>
 
@@ -309,22 +309,22 @@ button.resume:hover {
     <div class="stats-row">
         <div class="stat-item">
             <div class="label">Hashrate (5m)</div>
-            <div class="val hashrate" data-field="hashrate"><?= $miner['hashrate_5m'] ?> TH/s</div>
+            <div class="val hashrate" data-field="hashrate"><?= number_format($miner['hashrate_5m'], 2) ?> TH/s</div>
         </div>
         <div class="stat-item">
             <div class="label">Power</div>
-            <div class="val power" data-field="power"><?= $miner['current_miner_consumption'] ?>W</div>
+            <div class="val power" data-field="power"><?= number_format($miner['current_miner_consumption']) ?>W</div>
         </div>
         <div class="stat-item">
             <div class="label">Fans</div>
-            <div class="val fan" data-field="fans"><?= $miner['current_fans'] ?>%</div>
+            <div class="val fan" data-field="fans"><?= number_format($miner['current_fans']) ?>%</div>
         </div>
     </div>
 <?php if ($miner['hashrate_5m'] > 0): ?>
     <div class="stats-row">
         <div class="stat-item" style="grid-column: span 3;">
             <div class="label">Efficiency</div>
-            <div class="val power" data-field="efficiency"><?= round($miner['current_miner_consumption'] / $miner['hashrate_5m'], 2) ?> W/TH</div>
+            <div class="val power" data-field="efficiency"><?= number_format($miner['current_miner_consumption'] / $miner['hashrate_5m'], 2) ?> W/TH</div>
         </div>
     </div>
 <?php endif; ?>
@@ -536,9 +536,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             const data = await resp.json();
 
             // Fleet totals
-            update(document.getElementById('fleet-wattage'), data.fleet.total_wattage + 'W');
-            update(document.getElementById('fleet-hashrate'), data.fleet.total_hashrate + ' TH/s');
-            update(document.getElementById('fleet-efficiency'), data.fleet.efficiency + ' W/TH');
+            update(document.getElementById('fleet-wattage'), Math.round(data.fleet.total_wattage) + 'W');
+            update(document.getElementById('fleet-hashrate'), Number(data.fleet.total_hashrate).toFixed(2) + ' TH/s');
+            update(document.getElementById('fleet-efficiency'), Number(data.fleet.efficiency).toFixed(2) + ' W/TH');
 
             // Per-miner
             data.miners.forEach(function(m) {
@@ -552,10 +552,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                 const fn = card.querySelector('[data-field="fans"]');
                 const ef = card.querySelector('[data-field="efficiency"]');
 
-                update(hr, m.hashrate_5m + ' TH/s');
-                update(pw, m.power + 'W');
-                update(fn, m.fans + '%');
-                if (ef) update(ef, m.efficiency + ' W/TH');
+                update(hr, Number(m.hashrate_5m).toFixed(2) + ' TH/s');
+                update(pw, Math.round(m.power) + 'W');
+                update(fn, Math.round(m.fans) + '%');
+                if (ef) update(ef, Number(m.efficiency).toFixed(2) + ' W/TH');
             });
         } catch (e) {
             // Silently retry on next interval
