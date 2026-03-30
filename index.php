@@ -287,16 +287,16 @@ button.resume:hover {
 <div class="page-header">
     <h1>&#9889; Miner Wattage Manager</h1>
     <div class="fleet-stats">
-        <div class="stat-badge"><span class="value"><?= $total_wattage ?>W</span> Total</div>
-        <div class="stat-badge"><span class="value"><?= $total_hashrate ?> TH/s</span> Hashrate</div>
-        <div class="stat-badge"><span class="value"><?= $efficiency ?> W/TH</span> Efficiency</div>
+        <div class="stat-badge"><span class="value" id="fleet-wattage"><?= $total_wattage ?>W</span> Total</div>
+        <div class="stat-badge"><span class="value" id="fleet-hashrate"><?= $total_hashrate ?> TH/s</span> Hashrate</div>
+        <div class="stat-badge"><span class="value" id="fleet-efficiency"><?= $efficiency ?> W/TH</span> Efficiency</div>
     </div>
 </div>
 
 <div class="miner-grid">
 <?php foreach ($miners as $miner): ?>
 <?php $online = ($miner['current_wattage'] != 0); ?>
-<div class="miner-card<?= $online ? '' : ' offline' ?>">
+<div class="miner-card<?= $online ? '' : ' offline' ?>" data-miner="<?= htmlspecialchars($miner['name']) ?>" data-conn="<?= htmlspecialchars($miner['connection']) ?>">
     <div class="miner-header">
         <a href="http://<?= htmlspecialchars($miner['ip']) ?>">
             <p class="miner-name"><?= htmlspecialchars($miner['name']) ?></p>
@@ -309,22 +309,22 @@ button.resume:hover {
     <div class="stats-row">
         <div class="stat-item">
             <div class="label">Hashrate (5m)</div>
-            <div class="val hashrate"><?= $miner['hashrate_5m'] ?> TH/s</div>
+            <div class="val hashrate" data-field="hashrate"><?= $miner['hashrate_5m'] ?> TH/s</div>
         </div>
         <div class="stat-item">
             <div class="label">Power</div>
-            <div class="val power"><?= $miner['current_miner_consumption'] ?>W</div>
+            <div class="val power" data-field="power"><?= $miner['current_miner_consumption'] ?>W</div>
         </div>
         <div class="stat-item">
             <div class="label">Fans</div>
-            <div class="val fan"><?= $miner['current_fans'] ?>%</div>
+            <div class="val fan" data-field="fans"><?= $miner['current_fans'] ?>%</div>
         </div>
     </div>
 <?php if ($miner['hashrate_5m'] > 0): ?>
     <div class="stats-row">
         <div class="stat-item" style="grid-column: span 3;">
             <div class="label">Efficiency</div>
-            <div class="val power"><?= round($miner['current_miner_consumption'] / $miner['hashrate_5m'], 2) ?> W/TH</div>
+            <div class="val power" data-field="efficiency"><?= round($miner['current_miner_consumption'] / $miner['hashrate_5m'], 2) ?> W/TH</div>
         </div>
     </div>
 <?php endif; ?>
@@ -503,5 +503,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     }
 }
 ?>
+<script>
+(function() {
+    const POLL_INTERVAL = 10000; // 10 seconds
+    const FLASH_CLASS = 'stat-flash';
+
+    // Add flash animation style
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .stat-flash { animation: flash 0.4s ease-in-out; }
+    `;
+    document.head.appendChild(style);
+
+    function flash(el) {
+        el.classList.remove(FLASH_CLASS);
+        void el.offsetWidth; // reflow
+        el.classList.add(FLASH_CLASS);
+    }
+
+    function update(el, text) {
+        if (el && el.textContent !== text) {
+            el.textContent = text;
+            flash(el);
+        }
+    }
+
+    async function poll() {
+        try {
+            const resp = await fetch('api.php', { cache: 'no-store' });
+            if (!resp.ok) return;
+            const data = await resp.json();
+
+            // Fleet totals
+            update(document.getElementById('fleet-wattage'), data.fleet.total_wattage + 'W');
+            update(document.getElementById('fleet-hashrate'), data.fleet.total_hashrate + ' TH/s');
+            update(document.getElementById('fleet-efficiency'), data.fleet.efficiency + ' W/TH');
+
+            // Per-miner
+            data.miners.forEach(function(m) {
+                const card = document.querySelector(
+                    '[data-miner="' + CSS.escape(m.name) + '"][data-conn="' + CSS.escape(m.connection) + '"]'
+                );
+                if (!card) return;
+
+                const hr = card.querySelector('[data-field="hashrate"]');
+                const pw = card.querySelector('[data-field="power"]');
+                const fn = card.querySelector('[data-field="fans"]');
+                const ef = card.querySelector('[data-field="efficiency"]');
+
+                update(hr, m.hashrate_5m + ' TH/s');
+                update(pw, m.power + 'W');
+                update(fn, m.fans + '%');
+                if (ef) update(ef, m.efficiency + ' W/TH');
+            });
+        } catch (e) {
+            // Silently retry on next interval
+        }
+    }
+
+    setInterval(poll, POLL_INTERVAL);
+})();
+</script>
 </body>
 </html>
