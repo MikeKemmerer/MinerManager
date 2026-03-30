@@ -1,0 +1,15 @@
+<VirtualHost *:80>
+    ServerName your-server-hostname
+    DocumentRoot /var/www/MinerManager
+
+    <Directory /var/www/MinerManager>
+        Options -Indexes
+        AllowOverride None
+        Require all granted
+
+        DirectoryIndex index.php
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/minermanager-error.log
+    CustomLog ${APACHE_LOG_DIR}/minermanager-access.log combined
+</VirtualHost>

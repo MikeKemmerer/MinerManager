@@ -13,7 +13,7 @@ A single-page PHP dashboard for monitoring and controlling Bitcoin miners runnin
 ## Requirements
 
 - PHP 7.4+ with sockets enabled (standard in most distributions)
-- A web server (Apache, nginx, lighttpd) with PHP support
+- Apache with `mod_php` or similar (nginx + php-fpm also works)
 - `sshpass` installed on the web server host (for wattage changes via SSH)
 - Miners running Braiins OS with the CGMiner API enabled on port 4028
 
@@ -38,7 +38,15 @@ A single-page PHP dashboard for monitoring and controlling Bitcoin miners runnin
    - `wattage_presets` — array of wattage values for the dropdown
    - `miners` — array of miner entries with `name`, `ip`, `max_wattage`, `connection`, and `location`
 
-4. Open the page in a browser.
+4. Set up the Apache virtual host:
+   ```bash
+   sudo cp apache-vhost.conf.example /etc/apache2/sites-available/minermanager.conf
+   # Edit ServerName and DocumentRoot to match your setup
+   sudo a2ensite minermanager
+   sudo systemctl reload apache2
+   ```
+
+5. Open the page in a browser.
 
 ## Configuration
 
