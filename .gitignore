@@ -1,0 +1,5 @@
+# Local configuration (contains secrets)
+config.json
+
+# IDE
+.vscode/

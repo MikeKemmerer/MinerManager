@@ -1,0 +1,15 @@
+{
+    "ssh_password": "your-miner-ssh-password",
+    "api_port": 4028,
+    "api_timeout": 1,
+    "wattage_presets": [400, 500, 600, 700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150, 1200, 1300, 1400],
+    "miners": [
+        {
+            "name": "miner-hostname",
+            "ip": "192.168.1.100",
+            "max_wattage": 1200,
+            "connection": "192.168.1.100",
+            "location": "Location Name"
+        }
+    ]
+}
