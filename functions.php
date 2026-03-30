@@ -109,11 +109,11 @@ function find_miner($miners, $name, $connection) {
  * Change the power limit on a miner via SSH.
  * Edits bosminer.toml and reloads the service.
  */
-function change_wattage($connection, $wattage, $ssh_password) {
+function change_wattage($connection, $wattage, $ssh_key_path) {
     $wattage = (int)$wattage;
     $cmd = sprintf(
-        'sshpass -p %s ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@%s %s',
-        escapeshellarg($ssh_password),
+        'ssh -i %s -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@%s %s',
+        escapeshellarg($ssh_key_path),
         escapeshellarg($connection),
         escapeshellarg(
             "sed -i 's/^psu_power_limit.*\$/psu_power_limit = $wattage/g' /etc/bosminer.toml; "

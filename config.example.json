@@ -1,5 +1,5 @@
 {
-    "ssh_password": "your-miner-ssh-password",
+    "ssh_key_path": "/var/www/.ssh/id_rsa_miners",
     "api_port": 4028,
     "api_timeout": 1,
     "wattage_presets": [400, 500, 600, 700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150, 1200, 1300, 1400],

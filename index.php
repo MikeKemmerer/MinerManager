@@ -448,7 +448,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                         echo '<h2>Updating ' . htmlspecialchars($target['name'])
                             . ' (' . htmlspecialchars($target['ip']) . ')</h2>';
                         echo '<h3>New Wattage: ' . $wattage . ' W</h3>';
-                        change_wattage($target['connection'], $wattage, $config['ssh_password']);
+                        change_wattage($target['connection'], $wattage, $config['ssh_key_path']);
                     } else {
                         echo '<p>Target wattage (' . $wattage . 'W) is out of range. '
                             . 'Enter a value between 250 and ' . $target['max_wattage'] . '.</p>';

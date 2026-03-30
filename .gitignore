@@ -1,5 +1,11 @@
 # Local configuration (contains secrets)
 config.json
 
+# Legacy single-file version (contains hardcoded secrets)
+MinerManagerDropdown.php
+
+# Local Apache config (machine-specific paths)
+apache-vhost.local.conf
+
 # IDE
 .vscode/
