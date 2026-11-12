@@ -1,0 +1,21 @@
+# Replace the household-facing server address, household subnet, and miner address.
+# Requires Apache 2.4.47+ for WebSocket upgrades through proxy_http.
+# Enable proxy and proxy_http, then enable this site and reload Apache.
+Listen 192.168.1.2:8080
+
+<VirtualHost 192.168.1.2:8080>
+    ServerName 192.168.1.2
+    ProxyRequests Off
+    ProxyTimeout 15
+
+    <Location />
+        Require ip 192.168.1.0/24
+    </Location>
+
+    # A separate origin preserves the miner UI's root-relative assets and APIs.
+    ProxyPass / http://192.168.1.100/ upgrade=websocket
+    ProxyPassReverse / http://192.168.1.100/
+
+    ErrorLog ${APACHE_LOG_DIR}/miner-proxy-error.log
+    CustomLog ${APACHE_LOG_DIR}/miner-proxy-access.log combined
+</VirtualHost>

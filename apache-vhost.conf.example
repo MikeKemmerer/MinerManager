@@ -8,7 +8,15 @@
         Require all granted
 
         DirectoryIndex index.php
+
+        <FilesMatch "(?i)^(config\.json|MinerManagerDropdown\.php|apache-.*|\.ht.*)$">
+            Require all denied
+        </FilesMatch>
     </Directory>
+
+    <DirectoryMatch "^/var/www/MinerManager/\.">
+        Require all denied
+    </DirectoryMatch>
 
     ErrorLog ${APACHE_LOG_DIR}/minermanager-error.log
     CustomLog ${APACHE_LOG_DIR}/minermanager-access.log combined

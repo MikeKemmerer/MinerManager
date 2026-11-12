@@ -47,7 +47,7 @@ function miner_command($connection, $port, $command, $parameter = null, $timeout
     $response = '';
     while (!feof($fp)) {
         $chunk = fread($fp, 8192);
-        if ($chunk === false) {
+        if ($chunk === false || $chunk === '') {
             break;
         }
         $response .= $chunk;
@@ -112,15 +112,16 @@ function find_miner($miners, $name, $connection) {
 function change_wattage($connection, $wattage, $ssh_key_path) {
     $wattage = (int)$wattage;
     $cmd = sprintf(
-        'ssh -i %s -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@%s %s',
+        'ssh -i %s -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@%s %s',
         escapeshellarg($ssh_key_path),
         escapeshellarg($connection),
         escapeshellarg(
-            "sed -i 's/^psu_power_limit.*\$/psu_power_limit = $wattage/g' /etc/bosminer.toml; "
+            "sed -i 's/^psu_power_limit.*\$/psu_power_limit = $wattage/g' /etc/bosminer.toml && "
             . "/etc/init.d/bosminer reload"
         )
     );
-    return shell_exec($cmd);
+    exec($cmd . ' 2>&1', $output, $status);
+    return $status === 0;
 }
 
 /**

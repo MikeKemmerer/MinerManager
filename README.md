@@ -73,6 +73,15 @@ A single-page PHP dashboard for monitoring and controlling Bitcoin miners runnin
 
 The `ip` and `connection` fields in each miner entry can differ if the miner's web UI and API are reachable on different addresses (e.g. through a VPN). In most setups they will be the same.
 
+For a miner reachable only from the server's Ethernet network, use
+`apache-miner-proxy.conf.example` to expose its web UI on a separate household-facing
+port (Apache 2.4.47+). Replace the example server address, allowed subnet, and miner address; enable
+Apache's `proxy` and `proxy_http` modules and the new site, check with
+`sudo apache2ctl configtest`, then reload Apache. Set that miner's `ip` to the
+proxy's `server-address:port`, leaving `connection` as its Ethernet-side address.
+The dedicated port preserves root-relative UI assets and APIs. This is a reverse
+proxy only: `ProxyRequests Off` prevents creating an outbound forward proxy.
+
 | Field | Description |
 |-------|-------------|
 | `name` | Miner hostname (shown in the UI and used for identification) |
@@ -87,6 +96,22 @@ The `ip` and `connection` fields in each miner entry can differ if the miner's w
 - The SSH private key should be owned by `www-data` with mode `600`
 - This tool is designed for **local network use only** and has no authentication layer
 - All form inputs are validated server-side against the configuration
+- Administrative forms require session-bound CSRF tokens; this does not authenticate LAN users
+- The Apache example denies configuration, Git/dotfile directories, and the legacy endpoint; apply equivalent rules when using another server
+
+## Checks
+
+```bash
+php -l functions.php && php -l index.php && php -l api.php
+python3 -m unittest discover -s tests -v
+```
+
+The regression tests require PHP CLI and Python 3, use a temporary configuration
+and a loopback fake miner, and do not contact configured miners. Run one case with:
+
+```bash
+python3 -m unittest discover -s tests -k test_pool_status_cannot_inject_markup -v
+```
 
 ## License
 

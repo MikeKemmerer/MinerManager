@@ -9,3 +9,6 @@ apache-vhost.local.conf
 
 # IDE
 .vscode/
+
+# Regression test bytecode
+tests/__pycache__/

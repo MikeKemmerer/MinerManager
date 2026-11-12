@@ -1,6 +1,30 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'samesite' => 'Strict',
+]);
+if (!session_start()) {
+    http_response_code(503);
+    exit('Unable to start a session. Please try again.');
+}
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+session_write_close();
+header('Cache-Control: no-store');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && (!isset($_POST['csrf_token']) || !is_string($_POST['csrf_token'])
+        || !hash_equals($csrf_token, $_POST['csrf_token']))
+) {
+    http_response_code(403);
+    exit('Invalid form token. Reload the dashboard and try again.');
+}
+
 $config = load_config();
 $miners = $config['miners'];
 
@@ -320,18 +344,17 @@ button.resume:hover {
             <div class="val fan" data-field="fans"><?= number_format($miner['current_fans']) ?>%</div>
         </div>
     </div>
-<?php if ($miner['hashrate_5m'] > 0): ?>
     <div class="stats-row">
         <div class="stat-item" style="grid-column: span 3;">
             <div class="label">Efficiency</div>
-            <div class="val power" data-field="efficiency"><?= number_format($miner['current_miner_consumption'] / $miner['hashrate_5m'], 2) ?> W/TH</div>
+            <div class="val power" data-field="efficiency"><?= number_format($miner['hashrate_5m'] > 0 ? $miner['current_miner_consumption'] / $miner['hashrate_5m'] : 0, 2) ?> W/TH</div>
         </div>
     </div>
-<?php endif; ?>
 
     <div class="controls-row">
 <?php $poweraction = ($miner['current_miner_consumption'] == 0) ? 'resume' : 'pause'; ?>
         <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" name="action" value="power">
             <input type="hidden" name="poweraction" value="<?= $poweraction ?>">
             <input type="hidden" name="name" value="<?= htmlspecialchars($miner['name']) ?>">
@@ -340,11 +363,11 @@ button.resume:hover {
         </form>
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" name="action" value="wattage">
             <input type="hidden" name="name" value="<?= htmlspecialchars($miner['name']) ?>">
             <input type="hidden" name="connection" value="<?= htmlspecialchars($miner['connection']) ?>">
-            <input type="hidden" name="current_wattage" value="<?= $miner['current_wattage'] ?>">
-            <select name="wattage" onchange="this.form.submit()">
+            <select name="wattage" data-max-wattage="<?= (int)$miner['max_wattage'] ?>" onchange="this.form.requestSubmit()">
 <?php
             $presets = $config['wattage_presets'];
             $current = $miner['current_wattage'];
@@ -370,10 +393,10 @@ button.resume:hover {
         </form>
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
             <input type="hidden" name="action" value="wattage">
             <input type="hidden" name="name" value="<?= htmlspecialchars($miner['name']) ?>">
             <input type="hidden" name="connection" value="<?= htmlspecialchars($miner['connection']) ?>">
-            <input type="hidden" name="current_wattage" value="<?= $miner['current_wattage'] ?>">
             <input type="text" name="wattage" minlength="3" maxlength="4" size="6" pattern="\d+" placeholder="Watts">
             <button type="submit">Set</button>
         </form>
@@ -393,7 +416,8 @@ button.resume:hover {
             $pool_name = prev($url_parts);
             $poolaction = ($pool['Status'] === 'Alive' || $pool['Status'] === 'Dead')
                 ? 'disable' : 'enable';
-            $status_class = strtolower($pool['Status']);
+            $status_classes = ['Alive' => 'alive', 'Dead' => 'dead', 'Disabled' => 'disabled'];
+            $status_class = $status_classes[$pool['Status']] ?? 'unknown';
 ?>
         <div class="pool-row">
             <div class="pool-name">
@@ -402,6 +426,7 @@ button.resume:hover {
             </div>
             <span class="pool-status <?= $status_class ?>"><?= htmlspecialchars($pool['Status']) ?></span>
             <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
                 <input type="hidden" name="action" value="pool">
                 <input type="hidden" name="poolaction" value="<?= $poolaction ?>pool">
                 <input type="hidden" name="pool" value="<?= (int)$pool['POOL'] ?>">
@@ -429,7 +454,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['action'], $_POST['name'], $_POST['connection'])
 ) {
     // Validate the target miner exists in config
-    $target = find_miner($config['miners'], $_POST['name'], $_POST['connection']);
+    $target = find_miner($miners, $_POST['name'], $_POST['connection']);
     if (!$target) {
         echo '<div class="action-result"><p>Unknown miner.</p></div>';
     } else {
@@ -440,15 +465,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             case 'wattage':
                 if (isset($_POST['wattage'])) {
                     $wattage = (int)$_POST['wattage'];
-                    $current = isset($_POST['current_wattage']) ? (int)$_POST['current_wattage'] : -1;
+                    $current = $target['current_wattage'];
 
                     if ($wattage === $current) {
                         echo '<p>Entered wattage is equal to the current wattage. No action taken.</p>';
                     } elseif ($wattage >= 250 && $wattage <= $target['max_wattage']) {
-                        echo '<h2>Updating ' . htmlspecialchars($target['name'])
+                        echo '<h2>Wattage request for ' . htmlspecialchars($target['name'])
                             . ' (' . htmlspecialchars($target['ip']) . ')</h2>';
                         echo '<h3>New Wattage: ' . $wattage . ' W</h3>';
-                        change_wattage($target['connection'], $wattage, $config['ssh_key_path']);
+                        if (change_wattage($target['connection'], $wattage, $config['ssh_key_path'])) {
+                            echo '<p>Power-limit update completed.</p>';
+                        } else {
+                            echo '<p>Power-limit update failed. Check server SSH access and miner service logs.</p>';
+                        }
                     } else {
                         echo '<p>Target wattage (' . $wattage . 'W) is out of range. '
                             . 'Enter a value between 250 and ' . $target['max_wattage'] . '.</p>';
@@ -469,6 +498,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                         echo '<h2>' . htmlspecialchars($result['STATUS'][0]['Msg'])
                             . ' on ' . htmlspecialchars($target['name'])
                             . ' (' . htmlspecialchars($target['ip']) . ')</h2>';
+                    } else {
+                        echo '<p>No valid response received for the pool action.</p>';
                     }
                     $refresh = 5;
                 } else {
@@ -489,6 +520,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                         echo '<h2>' . htmlspecialchars($result['STATUS'][0]['Msg'])
                             . ' initiated on ' . htmlspecialchars($target['name'])
                             . ' (' . htmlspecialchars($target['ip']) . ')</h2>';
+                    } else {
+                        echo '<p>No valid response received for the power action.</p>';
                     }
                 } else {
                     echo '<p>Invalid power action.</p>';
@@ -505,8 +538,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 ?>
 <script>
 (function() {
+    // Let action feedback finish its scheduled GET refresh before polling again.
+    if (<?= $_SERVER['REQUEST_METHOD'] === 'POST' ? 'true' : 'false' ?>) return;
     const POLL_INTERVAL = 10000; // 10 seconds
     const FLASH_CLASS = 'stat-flash';
+    let submitting = false;
+    document.addEventListener('submit', function() { submitting = true; });
 
     // Add flash animation style
     const style = document.createElement('style');
@@ -534,6 +571,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             const resp = await fetch('api.php', { cache: 'no-store' });
             if (!resp.ok) return;
             const data = await resp.json();
+            if (submitting) return;
 
             // Fleet totals
             update(document.getElementById('fleet-wattage'), Math.round(data.fleet.total_wattage) + 'W');
@@ -541,11 +579,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
             update(document.getElementById('fleet-efficiency'), Number(data.fleet.efficiency).toFixed(2) + ' W/TH');
 
             // Per-miner
-            data.miners.forEach(function(m) {
+            for (const m of data.miners) {
                 const card = document.querySelector(
                     '[data-miner="' + CSS.escape(m.name) + '"][data-conn="' + CSS.escape(m.connection) + '"]'
                 );
-                if (!card) return;
+                if (!card) continue;
+
+                const wasOnline = !card.classList.contains('offline');
+                if (wasOnline !== m.online) {
+                    if (!document.querySelector('input:focus, select:focus')) {
+                        window.location.replace(window.location.href);
+                    }
+                    return;
+                }
 
                 const hr = card.querySelector('[data-field="hashrate"]');
                 const pw = card.querySelector('[data-field="power"]');
@@ -556,13 +602,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                 update(pw, Math.round(m.power) + 'W');
                 update(fn, Math.round(m.fans) + '%');
                 if (ef) update(ef, Number(m.efficiency).toFixed(2) + ' W/TH');
-            });
+
+                const powerAction = card.querySelector('input[name="poweraction"]');
+                if (powerAction) {
+                    const action = m.power === 0 ? 'resume' : 'pause';
+                    powerAction.value = action;
+                    const button = powerAction.form.querySelector('button');
+                    button.className = action;
+                    update(button, action);
+                }
+
+                const select = card.querySelector('select[name="wattage"]');
+                if (select && select !== document.activeElement
+                    && m.wattage >= 250 && m.wattage <= Number(select.dataset.maxWattage)
+                ) {
+                    const value = String(m.wattage);
+                    if (!Array.from(select.options).some(function(o) { return o.value === value; })) {
+                        select.add(new Option(value + ' W (current)', value));
+                    }
+                    select.value = value;
+                }
+            }
         } catch (e) {
             // Silently retry on next interval
+        } finally {
+            if (!submitting) setTimeout(poll, POLL_INTERVAL);
         }
     }
 
-    setInterval(poll, POLL_INTERVAL);
+    setTimeout(poll, POLL_INTERVAL);
 })();
 </script>
 </body>
